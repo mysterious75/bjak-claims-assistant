@@ -12,7 +12,19 @@
 
 **AI-powered insurance claims processing assistant built for BJAK's Neobank platform**
 
-[Live Demo](https://yourusername.github.io/bjak-claims-assistant/) | [Report Bug](https://github.com/yourusername/bjak-claims-assistant/issues) | [Request Feature](https://github.com/yourusername/bjak-claims-assistant/issues)
+[Live Demo](https://mysterious75.github.io/bjak-claims-assistant/) | [Report Bug](https://github.com/mysterious75/bjak-claims-assistant/issues) | [Request Feature](https://github.com/mysterious75/bjak-claims-assistant/issues)
+
+</div>
+
+---
+
+## Screenshot
+
+<div align="center">
+
+![BJAK AI Claims Assistant](assets/demo-screenshot.png)
+
+*AI Claims Assistant - Interactive Demo Interface*
 
 </div>
 
@@ -80,7 +92,7 @@ An AI-native claims assistant that automates insurance claim intake, document pr
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/bjak-claims-assistant.git
+git clone https://github.com/mysterious75/bjak-claims-assistant.git
 cd bjak-claims-assistant
 
 # Create virtual environment
@@ -212,7 +224,7 @@ git add .
 git commit -m "Initial commit: BJAK AI Claims Assistant"
 
 # Add remote repository
-git remote add origin https://github.com/yourusername/bjak-claims-assistant.git
+git remote add origin https://github.com/mysterious75/bjak-claims-assistant.git
 
 # Push to GitHub
 git branch -M main
@@ -318,7 +330,7 @@ git merge main
 gh repo create bjak-claims-assistant --public --description "AI Claims Assistant for BJAK"
 
 # Clone
-gh repo clone yourusername/bjak-claims-assistant
+gh repo clone mysterious75/bjak-claims-assistant
 
 # Enable GitHub Pages
 gh api repos/{owner}/{repo}/pages -X POST -f build_type=legacy -f source.branch=main -f source.path=/frontend
@@ -448,9 +460,9 @@ SOFTWARE.
 
 ## Contact
 
-**Project Link:** [https://github.com/yourusername/bjak-claims-assistant](https://github.com/yourusername/bjak-claims-assistant)
+**Project Link:** [https://github.com/mysterious75/bjak-claims-assistant](https://github.com/mysterious75/bjak-claims-assistant)
 
-**Live Demo:** [https://yourusername.github.io/bjak-claims-assistant/](https://yourusername.github.io/bjak-claims-assistant/)
+**Live Demo:** [https://mysterious75.github.io/bjak-claims-assistant/](https://mysterious75.github.io/bjak-claims-assistant/)
 
 ---
 
