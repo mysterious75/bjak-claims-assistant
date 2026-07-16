@@ -1,0 +1,41 @@
+# BJAK Claims Assistant Configuration
+
+llm:
+  provider: "gemini"
+  model: "gemini-2.5-flash"
+  fallback_model: "gemini-2.5-flash-lite"
+  temperature: 0.3
+  max_tokens: 2048
+
+rag:
+  embedding_model: "models/text-embedding-004"
+  chunk_size: 500
+  chunk_overlap: 50
+  top_k: 5
+  vectorstore_path: "./vectorstore"
+
+claims:
+  statuses:
+    - "DRAFT"
+    - "SUBMITTED"
+    - "UNDER_REVIEW"
+    - "APPROVED"
+    - "REJECTED"
+    - "PAID"
+  
+  claim_types:
+    - "health"
+    - "motor"
+    - "life"
+    - "travel"
+
+  required_documents:
+    health: ["hospital_bill", "discharge_summary", "policy_number"]
+    motor: ["police_report", "photos", "repair_estimate"]
+    life: ["death_certificate", "policy_number", "beneficiary_id"]
+    travel: ["boarding_pass", "medical_report", " receipts"]
+
+app:
+  title: "BJAK AI Claims Assistant"
+  version: "1.0.0"
+  max_upload_size_mb: 10
