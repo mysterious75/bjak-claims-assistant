@@ -5,6 +5,8 @@ from typing import Optional, Dict, Any, List
 from dotenv import load_dotenv
 import google.generativeai as genai
 
+from .config_loader import get_config
+
 load_dotenv()
 
 
@@ -12,8 +14,16 @@ class LLMClient:
     """Gemini LLM client with model rotation and fallback."""
     
     def __init__(self):
+        config = get_config()
         self.api_key = os.getenv("GEMINI_API_KEY")
-        self.models = os.getenv("LLM_MODELS", "gemini-2.5-flash").split(",")
+        
+        # Use config if available, else fallback to env var
+        self.models = config.get("llm", {}).get("models", [])
+        if not self.models:
+            self.models = os.getenv("LLM_MODELS", "gemini-2.5-flash").split(",")
+        
+        self.temperature = config.get("llm", {}).get("temperature", 0.3)
+        self.max_tokens = config.get("llm", {}).get("max_tokens", 2048)
         self.current_model_idx = 0
         
         genai.configure(api_key=self.api_key)

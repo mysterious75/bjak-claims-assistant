@@ -2,11 +2,13 @@
 
 import streamlit as st
 import os
+import time
 from datetime import datetime
 
 from backend.llm_client import LLMClient
 from backend.rag_engine import RAGEngine
 from backend.claims_agent import ClaimsAgent
+from backend.evaluator import Evaluator
 
 # Page config
 st.set_page_config(
@@ -20,6 +22,7 @@ if "agent" not in st.session_state:
     st.session_state.llm = LLMClient()
     st.session_state.rag = RAGEngine(st.session_state.llm)
     st.session_state.agent = ClaimsAgent(st.session_state.llm, st.session_state.rag)
+    st.session_state.evaluator = Evaluator()
     st.session_state.messages = []
     st.session_state.session_id = "streamlit_session"
 
@@ -32,7 +35,7 @@ with st.sidebar:
     st.header("Navigation")
     page = st.radio(
         "Go to",
-        ["💬 Chat Assistant", "📝 File Claim", "📊 Track Claim", "❓ FAQ", "📈 Demo"],
+        ["💬 Chat Assistant", "📝 File Claim", "📊 Track Claim", "❓ FAQ", "📈 Demo", "📊 Metrics"],
         label_visibility="collapsed"
     )
     
@@ -52,8 +55,29 @@ with st.sidebar:
     if rag_stats["status"] == "loaded":
         st.info(f"📚 FAQ Documents: {rag_stats['document_count']}")
     
+    # Session metrics
+    metrics = st.session_state.evaluator.get_session_metrics()
+    if metrics.get("total_interactions", 0) > 0:
+        st.metric("Interactions", metrics["total_interactions"])
+        st.metric("Avg Response", f"{metrics.get('avg_response_time_ms', 0):.0f}ms")
+    
     st.divider()
     st.caption("v1.0.0 | Built with Streamlit + Gemini")
+
+
+def log_interaction(query, response, action, start_time, sources=None):
+    """Log interaction to evaluator."""
+    elapsed_ms = (time.time() - start_time) * 1000
+    st.session_state.evaluator.log_interaction(
+        session_id=st.session_state.session_id,
+        user_query=query,
+        assistant_response=response,
+        action=action,
+        response_time_ms=elapsed_ms,
+        sources_used=len(sources) if sources else 0,
+        success=True
+    )
+
 
 # Chat Assistant Page
 if page == "💬 Chat Assistant":
@@ -78,17 +102,22 @@ if page == "💬 Chat Assistant":
         # Process with agent
         with st.chat_message("assistant"):
             with st.spinner("Processing..."):
+                start_time = time.time()
                 result = st.session_state.agent.process_message(
                     prompt,
                     st.session_state.session_id
                 )
                 
                 response = result.get("response", "I'm here to help!")
+                sources = result.get("tool_result", {}).get("sources", [])
+                
+                # Log interaction
+                log_interaction(prompt, response, result.get("action", "respond"), start_time, sources)
+                
                 st.markdown(response)
                 
                 # Show sources if available
-                if result.get("tool_result", {}).get("sources"):
-                    sources = result["tool_result"]["sources"]
+                if sources:
                     with st.expander("📚 Sources"):
                         for src in sources[:3]:
                             st.caption(f"📄 {src.get('source', 'unknown')}")
@@ -97,7 +126,7 @@ if page == "💬 Chat Assistant":
         st.session_state.messages.append({
             "role": "assistant",
             "content": response,
-            "sources": result.get("tool_result", {}).get("sources", [])
+            "sources": sources
         })
 
 # File Claim Page
@@ -135,6 +164,8 @@ elif page == "📝 File Claim":
             if not claimant_name or not description:
                 st.error("Please fill in required fields (Name, Description)")
             else:
+                start_time = time.time()
+                
                 # Process documents
                 documents = []
                 if uploaded_files:
@@ -154,6 +185,14 @@ elif page == "📝 File Claim":
                     "documents": documents
                 })
                 
+                # Log interaction
+                log_interaction(
+                    f"File claim: {claim_type}",
+                    f"Claim {result.get('claim_id', 'failed')}",
+                    "file_claim",
+                    start_time
+                )
+                
                 if result["success"]:
                     st.success(f"✅ Claim Filed Successfully!")
                     st.info(f"**Claim ID:** {result['claim_id']}")
@@ -171,7 +210,16 @@ elif page == "📊 Track Claim":
     claim_id = st.text_input("Enter Claim ID (e.g., BJK-XXXXXXXX)")
     
     if claim_id:
+        start_time = time.time()
         result = st.session_state.agent.check_status(claim_id)
+        
+        # Log interaction
+        log_interaction(
+            f"Check status: {claim_id}",
+            f"Status: {result.get('status', 'not found')}",
+            "check_status",
+            start_time
+        )
         
         if result["success"]:
             st.success(f"Claim Found: {result['claim_id']}")
@@ -217,7 +265,12 @@ elif page == "❓ FAQ":
     for q in sample_questions:
         if st.button(q, key=q):
             with st.spinner("Searching..."):
+                start_time = time.time()
                 result = st.session_state.agent.ask_faq(q)
+                
+                # Log interaction
+                log_interaction(q, result["answer"], "ask_faq", start_time, result.get("sources"))
+                
                 st.info(result["answer"])
                 if result.get("sources"):
                     with st.expander("📚 Sources"):
@@ -230,7 +283,12 @@ elif page == "❓ FAQ":
     custom_q = st.text_input("Ask your own question:")
     if custom_q:
         with st.spinner("Searching..."):
+            start_time = time.time()
             result = st.session_state.agent.ask_faq(custom_q)
+            
+            # Log interaction
+            log_interaction(custom_q, result["answer"], "ask_faq", start_time, result.get("sources"))
+            
             st.info(result["answer"])
 
 # Demo Page
@@ -257,10 +315,12 @@ elif page == "📈 Demo":
                 
                 for msg in messages:
                     st.chat_message("user").markdown(msg)
+                    start_time = time.time()
                     result = st.session_state.agent.process_message(
                         msg,
                         f"demo_health_{datetime.now().timestamp()}"
                     )
+                    log_interaction(msg, result["response"], result.get("action", "respond"), start_time)
                     st.chat_message("assistant").markdown(result["response"])
                     st.divider()
     
@@ -278,10 +338,12 @@ elif page == "📈 Demo":
                 
                 for msg in messages:
                     st.chat_message("user").markdown(msg)
+                    start_time = time.time()
                     result = st.session_state.agent.process_message(
                         msg,
                         f"demo_motor_{datetime.now().timestamp()}"
                     )
+                    log_interaction(msg, result["response"], result.get("action", "respond"), start_time)
                     st.chat_message("assistant").markdown(result["response"])
                     st.divider()
     
@@ -298,7 +360,9 @@ elif page == "📈 Demo":
                 
                 for q in questions:
                     st.chat_message("user").markdown(q)
+                    start_time = time.time()
                     result = st.session_state.agent.ask_faq(q)
+                    log_interaction(q, result["answer"], "ask_faq", start_time, result.get("sources"))
                     st.chat_message("assistant").markdown(result["answer"])
                     st.divider()
     
@@ -315,9 +379,40 @@ elif page == "📈 Demo":
                 
                 for msg in messages:
                     st.chat_message("user").markdown(msg)
+                    start_time = time.time()
                     result = st.session_state.agent.process_message(
                         msg,
                         f"demo_escalation_{datetime.now().timestamp()}"
                     )
+                    log_interaction(msg, result["response"], result.get("action", "respond"), start_time)
                     st.chat_message("assistant").markdown(result["response"])
                     st.divider()
+
+# Metrics Page
+elif page == "📊 Metrics":
+    st.header("📊 Session Metrics")
+    
+    metrics = st.session_state.evaluator.get_session_metrics()
+    
+    if metrics.get("total_interactions", 0) == 0:
+        st.info("No interactions logged yet. Start chatting to see metrics!")
+    else:
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Total Interactions", metrics["total_interactions"])
+        with col2:
+            st.metric("Success Rate", f"{metrics['success_rate']*100:.1f}%")
+        with col3:
+            st.metric("Avg Response Time", f"{metrics['avg_response_time_ms']:.0f}ms")
+        
+        st.subheader("Action Distribution")
+        action_dist = metrics.get("action_distribution", {})
+        if action_dist:
+            st.bar_chart(action_dist)
+        
+        # Export report
+        if st.button("Export Report"):
+            report = st.session_state.evaluator.export_report()
+            st.json(report)
+            st.success("Report exported to logs/evaluation_report.json")

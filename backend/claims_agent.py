@@ -8,15 +8,22 @@ from datetime import datetime
 from .llm_client import LLMClient
 from .rag_engine import RAGEngine
 from .document_parser import DocumentParser
+from .config_loader import get_config
 
 
 class ClaimsAgent:
     """AI Agent for managing insurance claims."""
     
     def __init__(self, llm_client: LLMClient, rag_engine: RAGEngine):
+        config = get_config()
+        claims_config = config.get("claims", {})
+        
         self.llm = llm_client
         self.rag = rag_engine
         self.parser = DocumentParser(llm_client)
+        
+        self.claim_types = claims_config.get("claim_types", ["health", "motor", "life", "travel"])
+        self.valid_statuses = claims_config.get("statuses", ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "REJECTED", "PAID"])
         
         # In-memory storage (demo purposes)
         self.claims: Dict[str, Dict] = {}

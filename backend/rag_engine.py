@@ -8,23 +8,48 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import TextLoader, DirectoryLoader
 
 from .llm_client import LLMClient
+from .config_loader import get_config
 
 
 class RAGEngine:
     """RAG pipeline for insurance FAQ retrieval."""
     
-    def __init__(self, llm_client: LLMClient, vectorstore_path: str = "./vectorstore"):
+    def __init__(self, llm_client: LLMClient, vectorstore_path: str = None):
+        config = get_config()
+        rag_config = config.get("rag", {})
+        
         self.llm = llm_client
-        self.vectorstore_path = vectorstore_path
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
-        )
+        self.vectorstore_path = vectorstore_path or rag_config.get("vectorstore_path", "./vectorstore")
+        self.chunk_size = rag_config.get("chunk_size", 500)
+        self.chunk_overlap = rag_config.get("chunk_overlap", 50)
+        self.top_k = rag_config.get("top_k", 5)
+        self.embedding_model = rag_config.get("embedding_model", "sentence-transformers/all-MiniLM-L6-v2")
+        
+        self.embeddings = HuggingFaceEmbeddings(model_name=self.embedding_model)
         self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=500,
-            chunk_overlap=50,
+            chunk_size=self.chunk_size,
+            chunk_overlap=self.chunk_overlap,
             length_function=len,
         )
         self.vectorstore: Optional[Chroma] = None
+        
+        # Auto-ingest on initialization if vectorstore doesn't exist
+        self._auto_ingest()
+    
+    def _auto_ingest(self):
+        """Auto-ingest documents if vectorstore is empty or missing."""
+        # Try loading existing vectorstore first
+        if self.load_vectorstore():
+            stats = self.get_stats()
+            if stats.get("document_count", 0) > 0:
+                return  # Already has data
+        
+        # Ingest from default FAQ directory
+        default_faq_dir = os.path.join(os.path.dirname(__file__), "..", "data", "faq")
+        if os.path.exists(default_faq_dir):
+            count = self.ingest_documents(default_faq_dir)
+            if count > 0:
+                print(f"Auto-ingested {count} chunks from FAQ documents")
     
     def ingest_documents(self, docs_dir: str = "./data/faq") -> int:
         """Load and ingest FAQ documents into vector store."""
