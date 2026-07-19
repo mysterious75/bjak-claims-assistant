@@ -36,7 +36,7 @@ An AI-native claims assistant that automates insurance claim intake, document pr
 
 **Built for:** BJAK Applied AI Engineer Role  
 **Status:** MVP Complete  
-**Last Updated:** March 2024
+**Last Updated:** July 2026
 
 ---
 
